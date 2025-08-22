@@ -923,14 +923,35 @@
             document.getElementById('bookFormModal').classList.add('hidden');
         });
 
-        // Initialize App
-        function initializeApp() {
-            loadingScreen.classList.add('hidden');
-            authContainer.classList.add('hidden');
-            appContainer.classList.remove('hidden');
-            loadBooks();
-            loadBorrows();
-        }
+        // Navigation Functions
+function showContent(sectionId) {
+    const sections = ['dashboardContent', 'katalogContent', 'manajemenBukuContent', 'peminjamanContent', 'statistikContent'];
+    sections.forEach(section => {
+        document.getElementById(section).classList.add('hidden');
+    });
+    document.getElementById(sectionId).classList.remove('hidden');
+}
+
+// Event Listeners for Navigation Links
+document.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetSection = e.currentTarget.getAttribute('href').substring(1); // Get the section ID from href
+        showContent(targetSection);
+    });
+});
+
+// Initialize App
+function initializeApp() {
+    loadingScreen.classList.add('hidden');
+    authContainer.classList.add('hidden');
+    appContainer.classList.remove('hidden');
+    loadBooks();
+    loadBorrows();
+    showContent('dashboardContent'); // Show the dashboard by default
+}
+
+        
 
         // Firebase Auth State Change
         auth.onAuthStateChanged(user => {
@@ -958,6 +979,7 @@
                 appContainer.classList.add('hidden');
             }
         });
+        
     </script>
 </body>
 </html>
