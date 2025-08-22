@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Perpustakaan Digital SMA Negeri 3 Manado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-functions-compat.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .book-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .book-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        .nav-link {
+            position: relative;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -2px;
+            left: 0;
+            background-color: #2563eb;
+            transition: width 0.3s ease;
+        }
+        .nav-link:hover::after {
+            width: 100%;
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #2563eb;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .star-rating {
+            color: #fbbf24;
+        }
+        .availability-badge {
+            transition: all 0.3s ease;
+        }
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-blue-50 min-h-screen">
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <p class="text-blue-600 font-semibold">Memuat Sistem Perpustakaan Digital...</p>
+        </div>
+    </div>
+
+    <!-- Auth Container -->
+    <div id="authContainer" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800 p-4 hidden">
+        <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md">
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-book text-white text-3xl"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-blue-800">SMA Negeri 3 Manado</h1>
+                <p class="text-blue-600 mt-2">Sistem Perpustakaan Digital</p>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginForm">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-6 text-center">Masuk ke Akun</h2>
+                <form id="loginFormElement" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <input type="email" id="loginEmail" required 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input type="password" id="loginPassword" required 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                    <button type="submit" 
+                            class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                        Masuk
+                    </button>
+                </form>
+                <p class="text-center mt-4 text-gray-600">
+                    Belum punya akun? 
+                    <a href="#" id="showRegister" class="text-blue-600 hover:text-blue-800 font-semibold">Daftar di sini</a>
+                </p>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" class="hidden">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-6 text-center">Buat Akun Baru</h2>
+                <form id="registerFormElement" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap</label>
+                        <input type="text" id="registerName" required 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <input type="email" id="registerEmail" required 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input type="password" id="registerPassword" required 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Konfirmasi Password</label>
+                        <input type="password" id="registerConfirmPassword" required 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                        <select id="registerRole" 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <option value="anggota">Anggota</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <button type="submit" 
+                            class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                        Daftar
+                    </button>
+                </form>
+                <p class="text-center mt-4 text-gray-600">
+                    Sudah punya akun? 
+                    <a href="#" id="showLogin" class="text-blue-600 hover:text-blue-800 font-semibold">Masuk di sini</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application Container -->
+    <div id="appContainer" class="hidden">
+        <!-- Header -->
+        <header class="bg-white shadow-lg">
+            <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <button id="sidebarToggle" class="lg:hidden text-blue-600">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                            <i class="fas fa-book text-white"></i>
+                        </div>
+                        <h1 class="text-xl font-bold text-blue-800">Perpustakaan Digital</h1>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="hidden md:flex items-center space-x-4">
+                        <span id="userName" class="text-gray-700 font-medium"></span>
+                        <span id="userRole" class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"></span>
+                    </div>
+                    <button id="logoutBtn" class="bg-red-100 text-red-600 px-4 py-2 rounded-lg hover:bg-red-200 transition">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span class="hidden md:inline ml-2">Logout</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="sidebar w-64 bg-white shadow-lg min-h-screen fixed lg:static z-40">
+                <div class="p-6">
+                    <h2 class="text-lg font-semibold text-gray-700 mb-6">Menu Navigasi</h2>
+                    <ul class="space-y-2">
+                        <li>
+                            <a href="#dashboard" class="nav-link flex items-center space-x-3 p-3 text-gray-700 hover:bg-blue-50 rounded-lg transition">
+                                <i class="fas fa-home w-5"></i>
+                                <span>Dashboard</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#katalog" class="nav-link flex items-center space-x-3 p-3 text-gray-700 hover:bg-blue-50 rounded-lg transition">
+                                <i class="fas fa-book-open w-5"></i>
+                                <span>Katalog Buku</span>
+                            </a>
+                        </li>
+                        <li id="adminMenu" class="hidden">
+                            <a href="#manajemen-buku" class="nav-link flex items-center space-x-3 p-3 text-gray-700 hover:bg-blue-50 rounded-lg transition">
+                                <i class="fas fa-cog w-5"></i>
+                                <span>Manajemen Buku</span>
+                            </a>
+                        </li>
+                        <li id="adminMenu2" class="hidden">
+                            <a href="#manajemen-anggota" class="nav-link flex items-center space-x-3 p-3 text-gray-700 hover:bg-blue-50 rounded-lg transition">
+                                <i class="fas fa-users w-5"></i>
+                                <span>Manajemen Anggota</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#peminjaman" class="nav-link flex items-center space-x-3 p-3 text-gray-700 hover:bg-blue-50 rounded-lg transition">
+                                <i class="fas fa-exchange-alt w-5"></i>
+                                <span>Peminjaman</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#riwayat" class="nav-link flex items-center space-x-3 p-3 text-gray-700 hover:bg-blue-50 rounded-lg transition">
+                                <i class="fas fa-history w-5"></i>
+                                <span>Riwayat</span>
+                            </a>
+                        </li>
+                        <li id="adminMenu3" class="hidden">
+                            <a href="#statistik" class="nav-link flex items-center space-x-3 p-3 text-gray-700 hover:bg-blue-50 rounded-lg transition">
+                                <i class="fas fa-chart-bar w-5"></i>
+                                <span>Statistik</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="flex-1 p-6 lg:ml-64">
+                <!-- Dashboard -->
+                <div id="dashboardContent" class="content-section">
+                    <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                        <h2 class="text-2xl font-bold text-blue-800 mb-6">Dashboard Perpustakaan</h2>
+                        
+                        <!-- Stats Cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                            <div class="bg-blue-100 rounded-xl p-6 text-center">
+                                <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-book text-white text-xl"></i>
+                                </div>
+                                <h3 class="text-3xl font-bold text-blue-800" id="totalBooks">0</h3>
+                                <p class="text-blue-600">Total Buku</p>
+                            </div>
+                            <div class="bg-green-100 rounded-xl p-6 text-center">
+                                <div class="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-users text-white text-xl"></i>
+                                </div>
+                                <h3 class="text-3xl font-bold text-green-800" id="totalMembers">0</h3>
+                                <p class="text-green-600">Total Anggota</p>
+                            </div>
+                            <div class="bg-orange-100 rounded-xl p-6 text-center">
+                                <div class="w-12 h-12 bg-orange-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-exchange-alt text-white text-xl"></i>
+                                </div>
+                                <h3 class="text-3xl font-bold text-orange-800" id="activeLoans">0</h3>
+                                <p class="text-orange-600">Peminjaman Aktif</p>
+                            </div>
+                            <div class="bg-purple-100 rounded-xl p-6 text-center">
+                                <div class="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-star text-white text-xl"></i>
+                                </div>
+                                <h3 class="text-3xl font-bold text-purple-800" id="averageRating">0</h3>
+                                <p class="text-purple-600">Rating Rata-rata</p>
+                            </div>
+                        </div>
+
+                        <!-- Recent Activity -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-white border border-gray-200 rounded-xl p-6">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Buku Populer</h3>
+                                <div id="popularBooks" class="space-y-3">
+                                    <!-- Popular books will be loaded here -->
+                                </div>
+                            </div>
+                            <div class="bg-white border border-gray-200 rounded-xl p-6">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Aktivitas Terbaru</h3>
+                                <div id="recentActivity" class="space-y-3">
+                                    <!-- Recent activity will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Katalog Buku -->
+                <div id="katalogContent" class="content-section hidden">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-2xl font-bold text-blue-800 mb-6">Katalog Buku</h2>
+                        
+                        <!-- Search and Filters -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div class="md:col-span-2">
+                                <input type="text" id="searchBooks" placeholder="Cari buku..." 
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            </div>
+                            <select id="categoryFilter" class="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                                <option value="">Semua Kategori</option>
+                                <option value="fiksi">Fiksi</option>
+                                <option value="non-fiksi">Non-Fiksi</option>
+                                <option value="pelajaran">Pelajaran</option>
+                                <option value="referensi">Referensi</option>
+                                <option value="novel">Novel</option>
+                            </select>
+                            <select id="availabilityFilter" class="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                                <option value="">Semua Status</option>
+                                <option value="available">Tersedia</option>
+                                <option value="borrowed">Dipinjam</option>
+                            </select>
+                        </div>
+
+                        <!-- Books Grid -->
+                        <div id="booksGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            <!-- Books will be loaded here -->
+                        </div>
+
+                        <!-- Load More Button -->
+                        <div class="text-center mt-8">
+                            <button id="loadMoreBooks" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+                                Muat Lebih Banyak
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detail Buku Modal -->
+                <div id="bookDetailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                    <div class="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-bold text-blue-800">Detail Buku</h3>
+                            <button id="closeBookDetail" class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div id="bookDetailContent">
+                            <!-- Book detail content will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manajemen Buku -->
+                <div id="manajemenBukuContent" class="content-section hidden">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-blue-800">Manajemen Buku</h2>
+                            <button id="addBookBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                                <i class="fas fa-plus mr-2"></i>Tambah Buku
+                            </button>
+                        </div>
+
+                        <!-- Books Management Table -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full border-collapse">
+                                <thead>
+                                    <tr class="bg-blue-100">
+                                        <th class="border border-gray-300 px-4 py-3 text-left">Judul</th>
+                                        <th class="border border-gray-300 px-4 py-3 text-left">Pengarang</th>
+                                        <th class="border border-gray-300 px-4 py-3 text-left">Kategori</th>
+                                        <th class="border border-gray-300 px-4 py-3 text-left">Status</th>
+                                        <th class="border border-gray-300 px-4 py-3 text-left">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="booksTableBody">
+                                    <!-- Books will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add/Edit Book Modal -->
+                <div id="bookFormModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                    <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-bold text-blue-800" id="bookFormTitle">Tambah Buku</h3>
+                            <button id="closeBookForm" class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <form id="bookForm" class="space-y-4">
+                            <input type="hidden" id="bookId">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Judul Buku</label>
+                                <input type="text" id="bookTitle" required 
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Pengarang</label>
+                                <input type="text" id="bookAuthor" required 
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Kategori</label>
+                                <select id="bookCategory" 
+                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                                    <option value="fiksi">Fiksi</option>
+                                    <option value="non-fiksi">Non-Fiksi</option>
+                                    <option value="pelajaran">Pelajaran</option>
+                                    <option value="referensi">Referensi</option>
+                                    <option value="novel">Novel</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Tahun Terbit</label>
+                                <input type="number" id="bookYear" min="1900" max="2030" 
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ISBN</label>
+                                <input type="text" id="bookISBN" 
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Deskripsi</label>
+                                <textarea id="bookDescription" rows="3"
+                                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Jumlah Salinan</label>
+                                <input type="number" id="bookCopies" min="1" 
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            </div>
+                            <div class="flex space-x-4">
+                                <button type="submit" 
+                                        class="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                                    Simpan
+                                </button>
+                                <button type="button" id="cancelBookForm" 
+                                        class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition">
+                                    Batal
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Peminjaman Content -->
+                <div id="peminjamanContent" class="content-section hidden">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-2xl font-bold text-blue-800 mb-6">Manajemen Peminjaman</h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <!-- Peminjaman Form -->
+                            <div class="bg-blue-50 rounded-xl p-6">
+                                <h3 class="text-lg font-semibold text-blue-800 mb-4">Pinjam Buku</h3>
+                                <form id="borrowForm" class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Cari Buku</label>
+                                        <input type="text" id="borrowSearch" placeholder="Cari judul buku..." 
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                                        <div id="borrowSuggestions" class="hidden bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto"></div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Durasi Peminjaman (hari)</label>
+                                        <select id="borrowDuration" 
+                                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                                            <option value="7">7 Hari</option>
+                                            <option value="14">14 Hari</option>
+                                            <option value="30">30 Hari</option>
+                                        </select>
+                                    </div>
+                                    <button type="submit" 
+                                            class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                                        Ajukan Peminjaman
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Aktif Peminjaman -->
+                            <div class="bg-green-50 rounded-xl p-6">
+                                <h3 class="text-lg font-semibold text-green-800 mb-4">Peminjaman Aktif</h3>
+                                <div id="activeBorrows" class="space-y-3">
+                                    <!-- Active borrows will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Daftar Peminjaman -->
+                        <div class="bg-white border border-gray-200 rounded-xl p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Daftar Peminjaman</h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full border-collapse">
+                                    <thead>
+                                        <tr class="bg-gray-100">
+                                            <th class="border border-gray-300 px-4 py-3 text-left">Judul Buku</th>
+                                            <th class="border border-gray-300 px-4 py-3 text-left">Peminjam</th>
+                                            <th class="border border-gray-300 px-4 py-3 text-left">Tanggal Pinjam</th>
+                                            <th class="border border-gray-300 px-4 py-3 text-left">Jatuh Tempo</th>
+                                            <th class="border border-gray-300 px-4 py-3 text-left">Status</th>
+                                            <th class="border border-gray-300 px-4 py-3 text-left">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="borrowsTableBody">
+                                        <!-- Borrows will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistik Content -->
+                <div id="statistikContent" class="content-section hidden">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-2xl font-bold text-blue-800 mb-6">Statistik Perpustakaan</h2>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <!-- Buku Populer Chart -->
+                            <div class="bg-white border border-gray-200 rounded-xl p-6">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Buku Terpopuler</h3>
+                                <canvas id="popularBooksChart" width="400" height="300"></canvas>
+                            </div>
+                            
+                            <!-- Kategori Buku Chart -->
+                            <div class="bg-white border border-gray-200 rounded-xl p-6">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Distribusi Kategori</h3>
+                                <canvas id="categoryDistributionChart" width="400" height="300"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Peminjaman Bulanan -->
+                            <div class="bg-white border border-gray-200 rounded-xl p-6">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Peminjaman Bulanan</h3>
+                                <canvas id="monthlyLoansChart" width="400" height="300"></canvas>
+                            </div>
+                            
+                            <!-- Rating Buku -->
+                            <div class="bg-white border border-gray-200 rounded-xl p-6">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Distribusi Rating</h3>
+                                <canvas id="ratingDistributionChart" width="400" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <script>
+        // Firebase Configuration
+      const firebaseConfig = {
+  apiKey: "AIzaSyAt8wJzeOA1Ewi8ook67NNE6_gXTJuqXxQ",
+  authDomain: "smartlib-team.firebaseapp.com",
+  projectId: "smartlib-team",
+  storageBucket: "smartlib-team.firebasestorage.app",
+  messagingSenderId: "765080868030",
+  appId: "1:765080868030:web:8905d5487ea2e01a07faef",
+  measurementId: "G-0LCPPKFPQX"
+};
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const functions = firebase.functions();
+
+        // Global Variables
+        let currentUser = null;
+        let userRole = null;
+        let books = [];
+        let members = [];
+        let borrows = [];
+
+        // DOM Elements
+        const loadingScreen = document.getElementById('loadingScreen');
+        const authContainer = document.getElementById('authContainer');
+        const appContainer = document.getElementById('appContainer');
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+
+        // Utility Functions
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `px-6 py-3 rounded-lg shadow-lg text-white font-semibold transform transition-all duration-300 ${
+                type === 'success' ? 'bg-green-600' : 
+                type === 'error' ? 'bg-red-600' : 
+                type === 'warning' ? 'bg-yellow-600' : 'bg-blue-600'
+            }`;
+            toast.textContent = message;
+            
+            const container = document.getElementById('toastContainer');
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => container.removeChild(toast), 300);
+            }, 3000);
+        }
+
+        function sanitizeInput(input) {
+            return input.replace(/[<>&"'`]/g, '');
+        }
+
+        // Auth Functions
+        async function handleLogin(email, password) {
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                const userDoc = await db.collection('users').doc(userCredential.user.uid).get();
+                
+                if (userDoc.exists) {
+                    currentUser = userCredential.user;
+                    userRole = userDoc.data().role;
+                    showToast('Login berhasil!', 'success');
+                    initializeApp();
+                } else {
+                    throw new Error('Data pengguna tidak ditemukan');
+                }
+            } catch (error) {
+                showToast('Login gagal: ' + error.message, 'error');
+            }
+        }
+
+        async function handleRegister(email, password, userData) {
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                await db.collection('users').doc(userCredential.user.uid).set({
+                    ...userData,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    isActive: true
+                });
+                showToast('Registrasi berhasil!', 'success');
+                showLoginForm();
+            } catch (error) {
+                showToast('Registrasi gagal: ' + error.message, 'error');
+            }
+        }
+
+        function showLoginForm() {
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+        }
+
+        function showRegisterForm() {
+            loginForm.classList.add('hidden');
+            registerForm.classList.remove('hidden');
+        }
+
+        // Book Management Functions
+        async function loadBooks() {
+            try {
+                const snapshot = await db.collection('books').orderBy('title').get();
+                books = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderBooksGrid();
+                updateBooksTable();
+            } catch (error) {
+                showToast('Gagal memuat data buku', 'error');
+            }
+        }
+
+        async function addBook(bookData) {
+            try {
+                await db.collection('books').add({
+                    ...bookData,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    availableCopies: bookData.totalCopies,
+                    rating: 0,
+                    totalReviews: 0
+                });
+                showToast('Buku berhasil ditambahkan', 'success');
+                loadBooks();
+            } catch (error) {
+                showToast('Gagal menambah buku', 'error');
+            }
+        }
+
+        async function updateBook(bookId, bookData) {
+            try {
+                await db.collection('books').doc(bookId).update(bookData);
+                showToast('Buku berhasil diperbarui', 'success');
+                loadBooks();
+            } catch (error) {
+                showToast('Gagal memperbarui buku', 'error');
+            }
+        }
+
+        async function deleteBook(bookId) {
+            if (confirm('Apakah Anda yakin ingin menghapus buku ini?')) {
+                try {
+                    await db.collection('books').doc(bookId).delete();
+                    showToast('Buku berhasil dihapus', 'success');
+                    loadBooks();
+                } catch (error) {
+                    showToast('Gagal menghapus buku', 'error');
+                }
+            }
+        }
+
+        // Borrow Management Functions
+        async function borrowBook(bookId, duration) {
+            try {
+                const book = books.find(b => b.id === bookId);
+                if (book.availableCopies <= 0) {
+                    throw new Error('Buku tidak tersedia');
+                }
+
+                const borrowData = {
+                    bookId,
+                    bookTitle: book.title,
+                    userId: currentUser.uid,
+                    userName: currentUser.displayName || currentUser.email,
+                    borrowDate: firebase.firestore.FieldValue.serverTimestamp(),
+                    dueDate: new Date(Date.now() + duration * 24 * 60 * 60 * 1000),
+                    status: userRole === 'admin' ? 'approved' : 'pending',
+                    returned: false
+                };
+
+                await db.collection('borrows').add(borrowData);
+                
+                // Update available copies
+                await db.collection('books').doc(bookId).update({
+                    availableCopies: firebase.firestore.FieldValue.increment(-1)
+                });
+
+                showToast('Peminjaman berhasil diajukan', 'success');
+                loadBorrows();
+            } catch (error) {
+                showToast('Gagal meminjam buku: ' + error.message, 'error');
+            }
+        }
+
+        async function returnBook(borrowId, bookId) {
+            try {
+                await db.collection('borrows').doc(borrowId).update({
+                    returned: true,
+                    returnDate: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                await db.collection('books').doc(bookId).update({
+                    availableCopies: firebase.firestore.FieldValue.increment(1)
+                });
+
+                showToast('Buku berhasil dikembalikan', 'success');
+                loadBorrows();
+            } catch (error) {
+                showToast('Gagal mengembalikan buku', 'error');
+            }
+        }
+
+        // Render Functions
+        function renderBooksGrid() {
+            const grid = document.getElementById('booksGrid');
+            grid.innerHTML = books.map(book => `
+                <div class="book-card bg-white rounded-xl shadow-md overflow-hidden">
+                    <div class="h-48 bg-gray-200 flex items-center justify-center">
+                        <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/c693479d-3a9d-49d9-93ad-545ed8503144.png" 
+                             alt="Cover buku ${book.title} karya ${book.author}" 
+                             class="w-full h-full object-cover">
+                    </div>
+                    <div class="p-4">
+                        <h3 class="font-semibold text-lg text-gray-800 mb-2">${book.title}</h3>
+                        <p class="text-gray-600 mb-2">Pengarang: ${book.author}</p>
+                        <p class="text-gray-600 mb-2">Kategori: ${book.category}</p>
+                        <p class="text-gray-600 mb-2">Salinan Tersedia: ${book.availableCopies}</p>
+                        <div class="flex justify-between items-center">
+                            <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition" 
+                                    onclick="showBookDetail('${book.id}')">Detail</button>
+                            <span class="text-yellow-500 font-semibold">${book.rating.toFixed(1)} <i class="fas fa-star"></i></span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showBookDetail(bookId) {
+            const book = books.find(b => b.id === bookId);
+            const bookDetailContent = document.getElementById('bookDetailContent');
+            bookDetailContent.innerHTML = `
+                <h3 class="text-xl font-bold text-blue-800 mb-4">${book.title}</h3>
+                <p class="text-gray-600 mb-2"><strong>Pengarang:</strong> ${book.author}</p>
+                <p class="text-gray-600 mb-2"><strong>Kategori:</strong> ${book.category}</p>
+                <p class="text-gray-600 mb-2"><strong>Tahun Terbit:</strong> ${book.year}</p>
+                <p class="text-gray-600 mb-2"><strong>ISBN:</strong> ${book.isbn}</p>
+                <p class="text-gray-600 mb-2"><strong>Deskripsi:</strong> ${book.description}</p>
+                <p class="text-gray-600 mb-2"><strong>Salinan Tersedia:</strong> ${book.availableCopies}</p>
+                <div class="flex justify-between mt-4">
+                    <button class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition" 
+                            onclick="borrowBook('${book.id}', 7)">Pinjam Buku</button>
+                    <span class="text-yellow-500 font-semibold">${book.rating.toFixed(1)} <i class="fas fa-star"></i></span>
+                </div>
+            `;
+            document.getElementById('bookDetailModal').classList.remove('hidden');
+        }
+
+        function updateBooksTable() {
+            const tableBody = document.getElementById('booksTableBody');
+            tableBody.innerHTML = books.map(book => `
+                <tr>
+                    <td class="border border-gray-300 px-4 py-3">${book.title}</td>
+                    <td class="border border-gray-300 px-4 py-3">${book.author}</td>
+                    <td class="border border-gray-300 px-4 py-3">${book.category}</td>
+                    <td class="border border-gray-300 px-4 py-3">${book.availableCopies > 0 ? 'Tersedia' : 'Dipinjam'}</td>
+                    <td class="border border-gray-300 px-4 py-3">
+                        <button class="text-blue-600 hover:underline" onclick="editBook('${book.id}')">Edit</button>
+                        <button class="text-red-600 hover:underline" onclick="deleteBook('${book.id}')">Hapus</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadBorrows() {
+            try {
+                const snapshot = await db.collection('borrows').where('userId', '==', currentUser .uid).get();
+                borrows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderBorrowsTable();
+            } catch (error) {
+                showToast('Gagal memuat data peminjaman', 'error');
+            }
+        }
+
+        function renderBorrowsTable() {
+            const tableBody = document.getElementById('borrowsTableBody');
+            tableBody.innerHTML = borrows.map(borrow => `
+                <tr>
+                    <td class="border border-gray-300 px-4 py-3">${borrow.bookTitle}</td>
+                    <td class="border border-gray-300 px-4 py-3">${borrow.userName}</td>
+                    <td class="border border-gray-300 px-4 py-3">${new Date(borrow.borrowDate.seconds * 1000).toLocaleDateString()}</td>
+                    <td class="border border-gray-300 px-4 py-3">${new Date(borrow.dueDate.seconds * 1000).toLocaleDateString()}</td>
+                    <td class="border border-gray-300 px-4 py-3">${borrow.returned ? 'Dikembalikan' : 'Dipinjam'}</td>
+                    <td class="border border-gray-300 px-4 py-3">
+                        ${!borrow.returned ? `<button class="text-green-600 hover:underline" onclick="returnBook('${borrow.id}', '${borrow.bookId}')">Kembalikan</button>` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Event Listeners
+        document.getElementById('loginFormElement').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            await handleLogin(email, password);
+        });
+
+        document.getElementById('registerFormElement').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const role = document.getElementById('registerRole').value;
+
+            if (document.getElementById('registerPassword').value !== document.getElementById('registerConfirmPassword').value) {
+                showToast('Password tidak cocok', 'error');
+                return;
+            }
+
+            await handleRegister(email, password, { name, role });
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await auth.signOut();
+            currentUser  = null;
+            userRole = null;
+            showToast('Logout berhasil!', 'success');
+            authContainer.classList.remove('hidden');
+            appContainer.classList.add('hidden');
+        });
+
+        document.getElementById('showRegister').addEventListener('click', (e) => {
+            e.preventDefault();
+            showRegisterForm();
+        });
+
+        document.getElementById('showLogin').addEventListener('click', (e) => {
+            e.preventDefault();
+            showLoginForm();
+        });
+
+        document.getElementById('closeBookDetail').addEventListener('click', () => {
+            document.getElementById('bookDetailModal').classList.add('hidden');
+        });
+
+        document.getElementById('closeBookForm').addEventListener('click', () => {
+            document.getElementById('bookFormModal').classList.add('hidden');
+        });
+
+        document.getElementById('cancelBookForm').addEventListener('click', () => {
+            document.getElementById('bookFormModal').classList.add('hidden');
+        });
+
+        document.getElementById('addBookBtn').addEventListener('click', () => {
+            document.getElementById('bookFormTitle').innerText = 'Tambah Buku';
+            document.getElementById('bookForm').reset();
+            document.getElementById('bookId').value = '';
+            document.getElementById('bookFormModal').classList.remove('hidden');
+        });
+
+        document.getElementById('bookForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const bookData = {
+                title: document.getElementById('bookTitle').value,
+                author: document.getElementById('bookAuthor').value,
+                category: document.getElementById('bookCategory').value,
+                year: document.getElementById('bookYear').value,
+                isbn: document.getElementById('bookISBN').value,
+                description: document.getElementById('bookDescription').value,
+                totalCopies: parseInt(document.getElementById('bookCopies').value, 10)
+            };
+
+            const bookId = document.getElementById('bookId').value;
+            if (bookId) {
+                await updateBook(bookId, bookData);
+            } else {
+                await addBook(bookData);
+            }
+            document.getElementById('bookFormModal').classList.add('hidden');
+        });
+
+        // Initialize App
+        function initializeApp() {
+            loadingScreen.classList.add('hidden');
+            authContainer.classList.add('hidden');
+            appContainer.classList.remove('hidden');
+            loadBooks();
+            loadBorrows();
+        }
+
+        // Firebase Auth State Change
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser  = user;
+                loadBooks();
+                loadBorrows();
+                const userDoc = db.collection('users').doc(user.uid);
+                userDoc.get().then(doc => {
+                    if (doc.exists) {
+                        userRole = doc.data().role;
+                        document.getElementById('userName').innerText = doc.data().name;
+                        document.getElementById('userRole').innerText = userRole.charAt(0).toUpperCase() + userRole.slice(1);
+                        if (userRole === 'admin') {
+                            document.getElementById('adminMenu').classList.remove('hidden');
+                            document.getElementById('adminMenu2').classList.remove('hidden');
+                            document.getElementById('adminMenu3').classList.remove('hidden');
+                        }
+                        initializeApp();
+                    }
+                });
+            } else {
+                loadingScreen.classList.add('hidden');
+                authContainer.classList.remove('hidden');
+                appContainer.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
+
