@@ -704,6 +704,79 @@
             }
         }
 
+        // Ambil referensi Firestore
+const db = firebase.firestore();
+
+// Fungsi buka modal edit
+async function editBook(bookId) {
+    try {
+        const docRef = db.collection("books").doc(bookId);
+        const docSnap = await docRef.get();
+
+        if (docSnap.exists) {
+            const book = docSnap.data();
+
+            // Isi field form dengan data buku
+            document.getElementById("bookId").value = bookId;
+            document.getElementById("bookTitle").value = book.title || "";
+            document.getElementById("bookAuthor").value = book.author || "";
+            document.getElementById("bookCategory").value = book.category || "fiksi";
+            document.getElementById("bookYear").value = book.year || "";
+            document.getElementById("bookISBN").value = book.isbn || "";
+            document.getElementById("bookDescription").value = book.description || "";
+            document.getElementById("bookCopies").value = book.copies || 1;
+
+            // Ubah judul modal
+            document.getElementById("bookFormTitle").textContent = "Edit Buku";
+
+            // Tampilkan modal
+            document.getElementById("bookFormModal").classList.remove("hidden");
+        } else {
+            alert("Data buku tidak ditemukan!");
+        }
+    } catch (error) {
+        console.error("Error mengambil data buku: ", error);
+        alert("Terjadi kesalahan saat mengambil data.");
+    }
+}
+
+// Event submit form (tambahkan update jika ada bookId)
+document.getElementById("bookForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const bookId = document.getElementById("bookId").value;
+    const bookData = {
+        title: document.getElementById("bookTitle").value,
+        author: document.getElementById("bookAuthor").value,
+        category: document.getElementById("bookCategory").value,
+        year: document.getElementById("bookYear").value,
+        isbn: document.getElementById("bookISBN").value,
+        description: document.getElementById("bookDescription").value,
+        copies: parseInt(document.getElementById("bookCopies").value, 10)
+    };
+
+    try {
+        if (bookId) {
+            // Update buku
+            await db.collection("books").doc(bookId).update(bookData);
+            alert("Buku berhasil diperbarui!");
+        } else {
+            // Tambah buku baru
+            await db.collection("books").add(bookData);
+            alert("Buku berhasil ditambahkan!");
+        }
+
+        // Tutup modal
+        document.getElementById("bookFormModal").classList.add("hidden");
+        document.getElementById("bookForm").reset();
+
+    } catch (error) {
+        console.error("Error menyimpan buku: ", error);
+        alert("Terjadi kesalahan saat menyimpan data.");
+    }
+});
+
+
         // Borrow Management Functions
         async function borrowBook(bookId, duration) {
             try {
