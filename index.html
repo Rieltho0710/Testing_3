@@ -979,6 +979,20 @@ function initializeApp() {
                 appContainer.classList.add('hidden');
             }
         });
+
+           async function loadBooks() {
+       try {
+           const snapshot = await db.collection('books').orderBy('title').get();
+           console.log(snapshot.docs); // Tambahkan ini untuk melihat data yang diterima
+           books = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+           renderBooksGrid();
+           updateBooksTable();
+       } catch (error) {
+           console.error('Gagal memuat data buku:', error); // Tambahkan ini untuk melihat kesalahan
+           showToast('Gagal memuat data buku', 'error');
+       }
+   }
+   
         
     </script>
 </body>
