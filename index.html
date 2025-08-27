@@ -552,12 +552,11 @@
     <!-- Toast Notifications -->
     <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
 
-    <script type="module">
-   import { initializeApp } from "firebase/app";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
-import { getFirestore, doc, setDoc, serverTimestamp } from "firebase/firestore";
-
-const firebaseConfig = {
+   
+    
+    
+    <script>
+        const firebaseConfig = {
   apiKey: "AIzaSyAt8wJzeOA1Ewi8ook67NNE6_gXTJuqXxQ",
   authDomain: "smartlib-team.firebaseapp.com",
   projectId: "smartlib-team",
@@ -566,39 +565,6 @@ const firebaseConfig = {
   appId: "1:765080868030:web:54b20531feb0306807faef",
   measurementId: "G-39VCHVMHLP"
 };
-
-// Inisialisasi Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// Fungsi register
-async function registerUser(email, password, name) {
-  try {
-    // 1. Buat akun auth
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-
-    // 2. Simpan data tambahan ke Firestore
-    await setDoc(doc(db, "users", user.uid), {
-      name: name,
-      role: "member",          // default role
-      createdAt: serverTimestamp()
-    });
-
-    console.log("User berhasil dibuat:", user.uid);
-  } catch (error) {
-    console.error("Error saat register:", error.message);
-  }
-}
-
-// Contoh pemanggilan
-registerUser("tesuser@example.com", "password123", "Gabriel Thomas");
-</script>
-
-    
-    
-    <script>
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
