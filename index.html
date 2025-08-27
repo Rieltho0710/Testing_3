@@ -610,6 +610,84 @@
             return input.replace(/[<>&"'`]/g, '');
         }
 
+        
+
+  // Init
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // Elements
+  const totalBooksEl = document.getElementById("totalBooks");
+  const totalMembersEl = document.getElementById("totalMembers");
+  const activeLoansEl = document.getElementById("activeLoans");
+  const averageRatingEl = document.getElementById("averageRating");
+  const popularBooksEl = document.getElementById("popularBooks");
+  const recentActivityEl = document.getElementById("recentActivity");
+
+  // Fungsi hitung dashboard
+  async function loadDashboard() {
+    // Total Buku
+    const booksSnap = await getDocs(collection(db, "books"));
+    totalBooksEl.textContent = booksSnap.size;
+
+    // Total Anggota
+    const membersSnap = await getDocs(collection(db, "members"));
+    totalMembersEl.textContent = membersSnap.size;
+
+    // Peminjaman Aktif
+    const loansSnap = await getDocs(collection(db, "loans"));
+    const activeLoans = loansSnap.docs.filter(doc => doc.data().status === "dipinjam").length;
+    activeLoansEl.textContent = activeLoans;
+
+    // Rating Rata-rata
+    let totalRating = 0, ratingCount = 0;
+    booksSnap.forEach(doc => {
+      const data = doc.data();
+      if (data.rating) {
+        totalRating += data.rating;
+        ratingCount++;
+      }
+    });
+    averageRatingEl.textContent = ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : "0";
+
+    // Buku Populer (berdasarkan jumlah dipinjam)
+    const popularQuery = query(collection(db, "books"), orderBy("borrowCount", "desc"), limit(5));
+    const popularSnap = await getDocs(popularQuery);
+    popularBooksEl.innerHTML = "";
+    popularSnap.forEach(doc => {
+      const data = doc.data();
+      popularBooksEl.innerHTML += `
+        <div class="flex justify-between items-center border-b pb-2">
+          <span>${data.title}</span>
+          <span class="text-sm text-gray-600">${data.borrowCount || 0} kali</span>
+        </div>`;
+    });
+
+    // Aktivitas Terbaru (ambil dari koleksi "activity")
+    const activityQuery = query(collection(db, "activity"), orderBy("timestamp", "desc"), limit(5));
+    const activitySnap = await getDocs(activityQuery);
+    recentActivityEl.innerHTML = "";
+    activitySnap.forEach(doc => {
+      const data = doc.data();
+      const time = new Date(data.timestamp?.seconds * 1000).toLocaleString();
+      recentActivityEl.innerHTML += `
+        <div class="border-b pb-2">
+          <p>${data.message}</p>
+          <p class="text-xs text-gray-500">${time}</p>
+        </div>`;
+    });
+  }
+
+  // Panggil pertama kali
+  loadDashboard();
+
+  // Opsional: realtime update (jika mau auto refresh saat ada perubahan)
+  onSnapshot(collection(db, "books"), loadDashboard);
+  onSnapshot(collection(db, "members"), loadDashboard);
+  onSnapshot(collection(db, "loans"), loadDashboard);
+  onSnapshot(collection(db, "activity"), loadDashboard);
+
+
         // Auth Functions
         async function handleLogin(email, password) {
             try {
