@@ -993,7 +993,22 @@ function initializeApp() {
            showToast('Gagal memuat data buku', 'error');
        }
    }
-   
+
+  const navLinks = document.querySelectorAll('.nav-link');
+  const sections = document.querySelectorAll('.content-section');
+
+  navLinks.forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      const target = this.getAttribute('href').substring(1);
+
+      // sembunyikan semua section
+      sections.forEach(sec => sec.classList.add('hidden'));
+
+      // tampilkan section sesuai klik
+      document.getElementById(target + 'Content').classList.remove('hidden');
+    });
+  });   
         
     </script>
 </body>
